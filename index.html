@@ -3,14 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robot Gemini 093 - Interfaz de Voz</title>
+    <title>Robot Gemini 093 - Oficial</title>
+    <!-- Configuración para que se comporte como una App (PWA) -->
+    <link rel="manifest" href="data:application/manifest+json,{'name':'Robot093','short_name':'Robot','start_url':'.','display':'standalone','background_color':'#050505','theme_color':'#00d2ff'}">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    
     <style>
         :root {
-            --bg-color: #0a0a0a;
-            --robot-color: #00d2ff; /* Celeste neón */
-            --eye-size: 22vw;
-            --mouth-width: 50vw;
-            --mouth-height: 8vh;
+            --bg-color: #050505;
+            --robot-color: #00d2ff; /* Celeste Neón */
+            --eye-size: 20vw;
+            --mouth-width: 45vw;
+            --mouth-height: 5vh;
         }
 
         body, html {
@@ -19,31 +24,36 @@
             display: flex; justify-content: center; align-items: center;
             background-color: var(--bg-color);
             overflow: hidden; cursor: pointer;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         #face {
             display: flex; flex-direction: column;
-            align-items: center; gap: 8vh;
+            align-items: center; gap: 10vh;
             width: 100%;
         }
 
-        .eyes { display: flex; gap: 12vw; }
+        .eyes { display: flex; gap: 15vw; }
 
         .eye {
             width: var(--eye-size);
             height: var(--eye-size);
             background-color: var(--robot-color);
             border-radius: 50%;
-            box-shadow: 0 0 50px var(--robot-color);
-            transition: all 0.2s ease;
+            box-shadow: 0 0 30px rgba(0, 210, 255, 0.4);
             position: relative;
+            /* Animación de parpadeo cada 4 segundos */
+            animation: blink-anim 4s infinite;
         }
 
-        /* Reflejo en los ojos para que se vea más "lindo" */
+        @keyframes blink-anim {
+            0%, 90%, 100% { transform: scaleY(1); }
+            95% { transform: scaleY(0.05); }
+        }
+
+        /* Brillo estático en los ojos */
         .eye::after {
             content: ''; position: absolute;
-            top: 20%; left: 20%; width: 25%; height: 25%;
+            top: 15%; left: 15%; width: 25%; height: 25%;
             background: rgba(255, 255, 255, 0.8); border-radius: 50%;
         }
 
@@ -52,132 +62,139 @@
             height: var(--mouth-height);
             background-color: var(--robot-color);
             border-radius: 100px;
-            box-shadow: 0 0 30px var(--robot-color);
-            transition: all 0.1s ease;
+            box-shadow: 0 0 20px rgba(0, 210, 255, 0.3);
+            transition: height 0.1s ease;
         }
 
-        /* --- ANIMACIONES --- */
-
-        /* Animación cuando el robot está escuchando */
-        .listening .eye {
-            animation: pulse 1.2s infinite;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); filter: brightness(1); }
-            50% { transform: scale(0.85); filter: brightness(1.5); }
-            100% { transform: scale(1); filter: brightness(1); }
-        }
-
-        /* Animación cuando el robot está hablando */
+        /* La boca solo se mueve cuando el robot habla */
         .speaking #mouth {
-            animation: moveMouth 0.25s infinite;
+            animation: talk-anim 0.2s infinite;
         }
-        @keyframes moveMouth {
-            0% { height: var(--mouth-height); transform: scaleX(1); }
-            50% { height: 15vh; transform: scaleX(1.1); }
-            100% { height: var(--mouth-height); transform: scaleX(1); }
+
+        @keyframes talk-anim {
+            0%, 100% { height: var(--mouth-height); }
+            50% { height: 12vh; }
         }
     </style>
 </head>
-<body onclick="iniciarRobot()">
+<body onclick="interactuar()">
 
     <div id="face">
         <div class="eyes">
-            <div class="eye" id="l-eye"></div>
-            <div class="eye" id="r-eye"></div>
+            <div class="eye"></div>
+            <div class="eye"></div>
         </div>
         <div id="mouth"></div>
     </div>
 
     <script>
-        // --- CONFIGURACIÓN ---
-        const API_KEY = "AIzaSyCvtxdy_hkc_gAt29FyJpRCA29NpEIPR5Y"; 
-        const MODELO = "gemini-1.5-flash";
+        // --- TU API KEY DE GEMINI ---
+        const API_KEY = "AIzaSyCfCiV6_Sa3fr1C6g7mjsUwq77tg1-RvJA"; 
 
         const synth = window.speechSynthesis;
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        
         let recognition;
-        let estadoIniciado = false;
+        let deferredPrompt;
+        let iniciado = false;
+        let estaEscuchando = false;
 
-        // Configurar reconocimiento de voz
+        // Capturar evento de instalación
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+        });
+
+        // Configurar Reconocimiento de Voz
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
-            recognition.lang = 'es-UY'; // Localizado para Uruguay
+            recognition.lang = 'es-UY';
             recognition.continuous = false;
 
+            recognition.onstart = () => { estaEscuchando = true; };
+            recognition.onend = () => { estaEscuchando = false; };
+            
             recognition.onresult = (event) => {
                 const mensaje = event.results[0][0].transcript;
-                document.body.classList.remove('listening');
                 enviarAGemini(mensaje);
-            };
-
-            recognition.onerror = () => {
-                document.body.classList.remove('listening');
             };
         }
 
-        // Función para arrancar (necesita un click del usuario)
-        function iniciarRobot() {
-            if (!estadoIniciado) {
-                estadoIniciado = true;
-                hablar("Hola ¿De qué quieres hablar hoy?");
-            } else if (!synth.speaking) {
+        async function interactuar() {
+            if (!iniciado) {
+                iniciado = true;
+                
+                // Si la App se puede instalar, lo pregunta primero
+                if (deferredPrompt) {
+                    hablar("He detectado que puedes añadirme como aplicación. ¿Quieres instalarme en tu dispositivo?");
+                    deferredPrompt.prompt();
+                    deferredPrompt.userChoice.then((choiceResult) => {
+                        if (choiceResult.outcome === 'accepted') {
+                            hablar("¡Genial! Ahora estaré en tu pantalla de inicio.");
+                        }
+                        deferredPrompt = null;
+                    });
+                } else {
+                    hablar("Hola ¿En qué puedo ayudarte?");
+                }
+            } else if (!synth.speaking && !estaEscuchando) {
                 escuchar();
             }
         }
 
         function hablar(texto) {
-            synth.cancel(); // Detener cualquier audio previo
+            synth.cancel();
             const enunciado = new SpeechSynthesisUtterance(texto);
             enunciado.lang = 'es-ES';
             
             enunciado.onstart = () => document.body.classList.add('speaking');
             enunciado.onend = () => {
                 document.body.classList.remove('speaking');
-                // Al terminar de hablar, activa el micrófono automáticamente
-                setTimeout(escuchar, 500); 
+                // Al terminar de hablar, espera un poco y escucha
+                setTimeout(escuchar, 500);
             };
-
             synth.speak(enunciado);
         }
 
         function escuchar() {
-            if (recognition && !synth.speaking) {
+            if (recognition && !estaEscuchando && !synth.speaking) {
                 try {
-                    document.body.classList.add('listening');
                     recognition.start();
-                } catch (e) {
-                    console.log("El reconocimiento ya estaba activo");
-                }
+                } catch (e) { console.log("Micrófono ya activo"); }
             }
         }
 
-        async function enviarAGemini(textoUsuario) {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${API_KEY}`;
+        async function enviarAGemini(pregunta) {
+            // Usamos v1 y modelo gemini-pro para evitar errores 404
+            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
             
-            const configuracion = {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [{ text: textoUsuario + " (Responde de forma muy breve, amigable y como un robot)" }]
-                    }]
-                })
+            const requestBody = {
+                contents: [{
+                    parts: [{ text: pregunta + " (Responde de forma muy breve, como un robot amigable)" }]
+                }]
             };
 
             try {
-                const response = await fetch(url, configuracion);
-                const data = await response.json();
-                
-                if (data.candidates && data.candidates[0].content) {
-                    const respuestaIA = data.candidates[0].content.parts[0].text;
-                    hablar(respuestaIA);
-                } else {
-                    hablar("Lo siento, mi conexión con la nube falló.");
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    console.error(err);
+                    hablar("Tengo un problema con mi conexión de red.");
+                    return;
                 }
+
+                const data = await response.json();
+                const respuestaIA = data.candidates[0].content.parts[0].text;
+                hablar(respuestaIA);
+
             } catch (error) {
                 console.error(error);
-                hablar("Error");
+                hablar("Error en mis circuitos centrales.");
             }
         }
     </script>
