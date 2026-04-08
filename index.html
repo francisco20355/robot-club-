@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Robot Gemini 093 - Oficial</title>
-    <!-- Configuración para que se comporte como una App (PWA) -->
-    <link rel="manifest" href="data:application/manifest+json,{'name':'Robot093','short_name':'Robot','start_url':'.','display':'standalone','background_color':'#050505','theme_color':'#00d2ff'}">
+    <!-- Configuración para que se comporte como una App (PWA) con comillas dobles corregidas -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"Robot093","short_name":"Robot","start_url":".","display":"standalone","background_color":"#050505","theme_color":"#00d2ff"}'>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     
@@ -24,7 +24,6 @@
             display: flex; justify-content: center; align-items: center;
             background-color: var(--bg-color);
             overflow: hidden; cursor: pointer;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         #face {
@@ -76,15 +75,6 @@
             0%, 100% { height: var(--mouth-height); }
             50% { height: 12vh; }
         }
-
-        #info-text {
-            position: absolute;
-            bottom: 20px;
-            color: var(--robot-color);
-            font-size: 14px;
-            opacity: 0.6;
-            letter-spacing: 1px;
-        }
     </style>
 </head>
 <body onclick="interactuar()">
@@ -97,11 +87,8 @@
         <div id="mouth"></div>
     </div>
 
-    <div id="info-text">TOCA PARA ACTIVAR</div>
-
     <script>
         // --- TU API KEY DE GEMINI ---
-        // Genera una nueva en https://aistudio.google.com/ si la anterior falla
         const API_KEY = "AIzaSyCfCiV6_Sa3fr1C6g7mjsUwq77tg1-RvJA"; 
 
         const synth = window.speechSynthesis;
@@ -124,14 +111,8 @@
             recognition.lang = 'es-UY';
             recognition.continuous = false;
 
-            recognition.onstart = () => { 
-                estaEscuchando = true; 
-                document.getElementById('info-text').innerText = "ESCUCHANDO...";
-            };
-            recognition.onend = () => { 
-                estaEscuchando = false; 
-                document.getElementById('info-text').innerText = "ESPERANDO TOQUE";
-            };
+            recognition.onstart = () => { estaEscuchando = true; };
+            recognition.onend = () => { estaEscuchando = false; };
             
             recognition.onresult = (event) => {
                 const mensaje = event.results[0][0].transcript;
@@ -154,7 +135,7 @@
                         deferredPrompt = null;
                     });
                 } else {
-                    hablar("Hola. Sistemas cargados. ¿En qué puedo ayudarte?");
+                    hablar("Hola ¿En qué puedo ayudarte?");
                 }
             } else if (!synth.speaking && !estaEscuchando) {
                 escuchar();
@@ -165,12 +146,11 @@
             synth.cancel();
             const enunciado = new SpeechSynthesisUtterance(texto);
             enunciado.lang = 'es-ES';
-            enunciado.pitch = 1.1; // Le da un toque levemente más robótico
             
             enunciado.onstart = () => document.body.classList.add('speaking');
             enunciado.onend = () => {
                 document.body.classList.remove('speaking');
-                // Al terminar de hablar, espera un poco y escucha automáticamente
+                // Al terminar de hablar, espera un poco y escucha
                 setTimeout(escuchar, 500);
             };
             synth.speak(enunciado);
@@ -185,7 +165,7 @@
         }
 
         async function enviarAGemini(pregunta) {
-            // URL actualizada a v1beta con el modelo gemini-1.5-flash
+            // URL actualizada a v1beta y modelo 1.5-flash para corregir el 404
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
             
             const requestBody = {
@@ -204,17 +184,17 @@
                 const data = await response.json();
 
                 if (!response.ok) {
-                    console.error(data);
-                    hablar("Error en mi conexión de red.");
+                    console.error("Error detallado:", data);
+                    hablar("Tengo un problema con mi conexión de red.");
                     return;
                 }
 
-                // Ajuste en la lectura del JSON para Gemini 1.5
+                // Estructura de respuesta corregida para Gemini 1.5
                 if (data.candidates && data.candidates[0].content) {
                     const respuestaIA = data.candidates[0].content.parts[0].text;
                     hablar(respuestaIA);
                 } else {
-                    hablar("No pude procesar esa pregunta.");
+                    hablar("No pude procesar esa información.");
                 }
 
             } catch (error) {
