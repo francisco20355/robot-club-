@@ -3,178 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RoboClub T1</title>
-    
-    <!-- Link al manifiesto que crearemos por código -->
-    <link rel="manifest" id="manifest-link">
-
+    <title>Robot Gemini 093 - Interfaz de Voz</title>
     <style>
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: #0a0e17;
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            margin: 0;
-            overflow: hidden;
+        :root {
+            --bg-color: #0a0a0a;
+            --robot-color: #00d2ff; /* Celeste neón */
+            --eye-size: 22vw;
+            --mouth-width: 50vw;
+            --mouth-height: 8vh;
         }
 
-        /* --- ROBOT SOLO CARA Y OJOS --- */
-        .head {
-            width: 180px;
-            height: 180px;
-            background: radial-gradient(circle at 30% 30%, #3a3f4b 0%, #1c1f26 100%);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 25px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-            animation: float 4s ease-in-out infinite;
-            transition: 0.3s;
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            display: flex; justify-content: center; align-items: center;
+            background-color: var(--bg-color);
+            overflow: hidden; cursor: pointer;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
+
+        #face {
+            display: flex; flex-direction: column;
+            align-items: center; gap: 8vh;
+            width: 100%;
+        }
+
+        .eyes { display: flex; gap: 12vw; }
 
         .eye {
-            width: 40px;
-            height: 40px;
-            background-color: #00fff2;
+            width: var(--eye-size);
+            height: var(--eye-size);
+            background-color: var(--robot-color);
             border-radius: 50%;
-            box-shadow: 0 0 20px #00fff2;
-            transition: 0.1s;
+            box-shadow: 0 0 50px var(--robot-color);
+            transition: all 0.2s ease;
+            position: relative;
         }
 
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-15px); }
+        /* Reflejo en los ojos para que se vea más "lindo" */
+        .eye::after {
+            content: ''; position: absolute;
+            top: 20%; left: 20%; width: 25%; height: 25%;
+            background: rgba(255, 255, 255, 0.8); border-radius: 50%;
         }
 
-        .talking .eye {
-            animation: glow 0.2s infinite alternate;
+        #mouth {
+            width: var(--mouth-width);
+            height: var(--mouth-height);
+            background-color: var(--robot-color);
+            border-radius: 100px;
+            box-shadow: 0 0 30px var(--robot-color);
+            transition: all 0.1s ease;
         }
 
-        @keyframes glow {
-            from { box-shadow: 0 0 10px #00fff2; }
-            to { box-shadow: 0 0 40px #00fff2; transform: scale(1.1); }
+        /* --- ANIMACIONES --- */
+
+        /* Animación cuando el robot está escuchando */
+        .listening .eye {
+            animation: pulse 1.2s infinite;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); filter: brightness(1); }
+            50% { transform: scale(0.85); filter: brightness(1.5); }
+            100% { transform: scale(1); filter: brightness(1); }
         }
 
-        /* --- INTERFAZ --- */
-        .ui {
-            margin-top: 40px;
-            text-align: center;
-            z-index: 10;
+        /* Animación cuando el robot está hablando */
+        .speaking #mouth {
+            animation: moveMouth 0.25s infinite;
         }
-
-        input {
-            padding: 12px;
-            border-radius: 8px;
-            border: none;
-            width: 250px;
-            background: #1c1f26;
-            color: white;
-        }
-
-        button {
-            padding: 12px 20px;
-            border-radius: 8px;
-            border: none;
-            background: #00fff2;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        #response {
-            margin-top: 20px;
-            max-width: 300px;
-            font-size: 14px;
-            color: #00fff2;
+        @keyframes moveMouth {
+            0% { height: var(--mouth-height); transform: scaleX(1); }
+            50% { height: 15vh; transform: scaleX(1.1); }
+            100% { height: var(--mouth-height); transform: scaleX(1); }
         }
     </style>
 </head>
-<body>
+<body onclick="iniciarRobot()">
 
-    <div class="head" id="robot">
-        <div class="eye"></div>
-        <div class="eye"></div>
-    </div>
-
-    <div class="ui">
-        <input type="text" id="input" placeholder="Pregunta algo...">
-        <button onclick="preguntar()">Hablar</button>
-        <div id="response"></div>
+    <div id="face">
+        <div class="eyes">
+            <div class="eye" id="l-eye"></div>
+            <div class="eye" id="r-eye"></div>
+        </div>
+        <div id="mouth"></div>
     </div>
 
     <script>
-        // 1. GENERADOR DE ARCHIVOS DINÁMICOS (Para que sea 1 solo archivo)
-        const manifestData = {
-            "name": "RoboClub Francisco",
-            "short_name": "RoboClub",
-            "start_url": ".",
-            "display": "standalone",
-            "background_color": "#0a0e17",
-            "theme_color": "#00fff2",
-            "icons": [{"src": "https://cdn-icons-png.flaticon.com/512/4712/4712139.png", "sizes": "512x512", "type": "image/png"}]
-        };
-        const manifestBlob = new Blob([JSON.stringify(manifestData)], {type: 'application/json'});
-        document.getElementById('manifest-link').setAttribute('href', URL.createObjectURL(manifestBlob));
+        // --- CONFIGURACIÓN ---
+        const API_KEY = "AIzaSyCvtxdy_hkc_gAt29FyJpRCA29NpEIPR5Y"; 
+        const MODELO = "gemini-1.5-flash";
 
-        // 2. REGISTRO DE SERVICE WORKER "FANTASMA"
-        const swCode = "self.addEventListener('fetch', function(event) {});";
-        const swBlob = new Blob([swCode], {type: 'text/javascript'});
-        const swUrl = URL.createObjectURL(swBlob);
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register(swUrl);
+        const synth = window.speechSynthesis;
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        let estadoIniciado = false;
+
+        // Configurar reconocimiento de voz
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'es-UY'; // Localizado para Uruguay
+            recognition.continuous = false;
+
+            recognition.onresult = (event) => {
+                const mensaje = event.results[0][0].transcript;
+                document.body.classList.remove('listening');
+                enviarAGemini(mensaje);
+            };
+
+            recognition.onerror = () => {
+                document.body.classList.remove('listening');
+            };
         }
 
-        // 3. PERMISOS Y DETECCIÓN
-        window.onload = async () => {
-            try {
-                await navigator.mediaDevices.getUserMedia({ audio: true });
-            } catch (e) { console.log("Micrófono no activado"); }
-            
-            if (/Android|iPhone/i.test(navigator.userAgent)) {
-                alert("¡Instala esta web como App para ver al robot sin pestañas!");
-            }
-        };
-
-        // 4. LÓGICA DE INTELIGENCIA (GEMINI)
-        const API_KEY = "AIzaSyCvtxdy_hkc_gAt29FyJpRCA29NpEIPR5Y";
-
-        async function preguntar() {
-            const txt = document.getElementById('input').value;
-            const resDiv = document.getElementById('response');
-            if(!txt) return;
-
-            resDiv.innerText = "Pensando...";
-            
-            try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${API_KEY}`, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({
-                        contents: [{parts: [{text: `Eres RoboClub-T1, robot del Club de Robots de Francisco. Responde corto y robótico: ${txt}`}]}]
-                    })
-                });
-                
-                const data = await response.json();
-                const respuesta = data.candidates[0].content.parts[0].text;
-                
-                resDiv.innerText = respuesta;
-                hablar(respuesta);
-            } catch (e) {
-                resDiv.innerText = "Error de conexión.";
+        // Función para arrancar (necesita un click del usuario)
+        function iniciarRobot() {
+            if (!estadoIniciado) {
+                estadoIniciado = true;
+                hablar("Hola ¿De qué quieres hablar hoy?");
+            } else if (!synth.speaking) {
+                escuchar();
             }
         }
 
         function hablar(texto) {
-            const synth = window.speechSynthesis;
-            const utter = new SpeechSynthesisUtterance(texto);
-            utter.lang = 'es-ES';
-            utter.onstart = () => document.getElementById('robot').classList.add('talking');
-            utter.onend = () => document.getElementById('robot').classList.remove('talking');
-            synth.speak(utter);
+            synth.cancel(); // Detener cualquier audio previo
+            const enunciado = new SpeechSynthesisUtterance(texto);
+            enunciado.lang = 'es-ES';
+            
+            enunciado.onstart = () => document.body.classList.add('speaking');
+            enunciado.onend = () => {
+                document.body.classList.remove('speaking');
+                // Al terminar de hablar, activa el micrófono automáticamente
+                setTimeout(escuchar, 500); 
+            };
+
+            synth.speak(enunciado);
+        }
+
+        function escuchar() {
+            if (recognition && !synth.speaking) {
+                try {
+                    document.body.classList.add('listening');
+                    recognition.start();
+                } catch (e) {
+                    console.log("El reconocimiento ya estaba activo");
+                }
+            }
+        }
+
+        async function enviarAGemini(textoUsuario) {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODELO}:generateContent?key=${API_KEY}`;
+            
+            const configuracion = {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [{ text: textoUsuario + " (Responde de forma muy breve, amigable y como un robot)" }]
+                    }]
+                })
+            };
+
+            try {
+                const response = await fetch(url, configuracion);
+                const data = await response.json();
+                
+                if (data.candidates && data.candidates[0].content) {
+                    const respuestaIA = data.candidates[0].content.parts[0].text;
+                    hablar(respuestaIA);
+                } else {
+                    hablar("Lo siento, mi conexión con la nube falló.");
+                }
+            } catch (error) {
+                console.error(error);
+                hablar("Error");
+            }
         }
     </script>
 </body>
