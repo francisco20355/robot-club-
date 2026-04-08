@@ -3,16 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robot Gemini 093 - Oficial</title>
-    <!-- Configuración para que se comporte como una App (PWA) con comillas dobles corregidas -->
-    <link rel="manifest" href='data:application/manifest+json,{"name":"Robot093","short_name":"Robot","start_url":".","display":"standalone","background_color":"#050505","theme_color":"#00d2ff"}'>
+    <title>Robot Groq 093 - Oficial</title>
+    
+    <!-- Manifest para habilitar la instalación como App -->
+    <link rel="manifest" href='data:application/manifest+json,{"name":"Robot093","short_name":"Robot","start_url":".","display":"standalone","background_color":"#050505","theme_color":"#00d2ff","icons":[{"src":"https://cdn-icons-png.flaticon.com/512/4712/4712139.png","sizes":"512x512","type":"image/png"}]}'>
+    
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     
     <style>
         :root {
             --bg-color: #050505;
-            --robot-color: #00d2ff; /* Celeste Neón */
+            --robot-color: #00d2ff;
             --eye-size: 20vw;
             --mouth-width: 45vw;
             --mouth-height: 5vh;
@@ -24,6 +27,7 @@
             display: flex; justify-content: center; align-items: center;
             background-color: var(--bg-color);
             overflow: hidden; cursor: pointer;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
         }
 
         #face {
@@ -41,7 +45,6 @@
             border-radius: 50%;
             box-shadow: 0 0 30px rgba(0, 210, 255, 0.4);
             position: relative;
-            /* Animación de parpadeo cada 4 segundos */
             animation: blink-anim 4s infinite;
         }
 
@@ -50,7 +53,6 @@
             95% { transform: scaleY(0.05); }
         }
 
-        /* Brillo estático en los ojos */
         .eye::after {
             content: ''; position: absolute;
             top: 15%; left: 15%; width: 25%; height: 25%;
@@ -66,7 +68,6 @@
             transition: height 0.1s ease;
         }
 
-        /* La boca solo se mueve cuando el robot habla */
         .speaking #mouth {
             animation: talk-anim 0.2s infinite;
         }
@@ -75,6 +76,46 @@
             0%, 100% { height: var(--mouth-height); }
             50% { height: 12vh; }
         }
+
+        /* CUADRO DE DIÁLOGO SÍ/NO */
+        #install-modal {
+            display: none;
+            position: fixed;
+            bottom: 15%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(15, 15, 15, 0.98);
+            border: 2px solid var(--robot-color);
+            padding: 25px;
+            border-radius: 20px;
+            text-align: center;
+            z-index: 9999;
+            color: white;
+            width: 85%;
+            max-width: 320px;
+            box-shadow: 0 0 40px rgba(0, 210, 255, 0.3);
+        }
+
+        .modal-buttons {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 25px;
+            gap: 15px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border-radius: 12px;
+            border: none;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .btn-yes { background: var(--robot-color); color: #000; }
+        .btn-no { background: #333; color: #fff; }
     </style>
 </head>
 <body onclick="interactuar()">
@@ -87,17 +128,25 @@
         <div id="mouth"></div>
     </div>
 
+    <!-- Interfaz de instalación -->
+    <div id="install-modal">
+        <p style="margin: 0; font-size: 1.1rem; line-height: 1.4;">¿Deseas añadir este robot como una aplicación?</p>
+        <div class="modal-buttons">
+            <button class="btn btn-yes" onclick="confirmarInstalacion(true)">SÍ</button>
+            <button class="btn btn-no" onclick="confirmarInstalacion(false)">NO</button>
+        </div>
+    </div>
+
     <script>
-        // --- TU API KEY DE GEMINI ---
-        const API_KEY = "AIzaSyCfCiV6_Sa3fr1C6g7mjsUwq77tg1-RvJA"; 
+        const GROQ_API_KEY = "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"; 
 
         const synth = window.speechSynthesis;
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         
         let recognition;
-        let deferredPrompt;
         let iniciado = false;
         let estaEscuchando = false;
+        let deferredPrompt;
 
         // Capturar evento de instalación
         window.addEventListener('beforeinstallprompt', (e) => {
@@ -105,40 +154,48 @@
             deferredPrompt = e;
         });
 
-        // Configurar Reconocimiento de Voz
         if (SpeechRecognition) {
             recognition = new SpeechRecognition();
             recognition.lang = 'es-UY';
             recognition.continuous = false;
-
             recognition.onstart = () => { estaEscuchando = true; };
             recognition.onend = () => { estaEscuchando = false; };
-            
             recognition.onresult = (event) => {
                 const mensaje = event.results[0][0].transcript;
-                enviarAGemini(mensaje);
+                enviarAGroq(mensaje);
             };
         }
 
         async function interactuar() {
             if (!iniciado) {
                 iniciado = true;
-                
-                // Si la App se puede instalar, lo pregunta primero
                 if (deferredPrompt) {
-                    hablar("He detectado que puedes añadirme como aplicación. ¿Quieres instalarme en tu dispositivo?");
-                    deferredPrompt.prompt();
-                    deferredPrompt.userChoice.then((choiceResult) => {
-                        if (choiceResult.outcome === 'accepted') {
-                            hablar("¡Genial! Ahora estaré en tu pantalla de inicio.");
-                        }
-                        deferredPrompt = null;
-                    });
+                    document.getElementById('install-modal').style.display = 'block';
+                    hablar("He detectado que puedes instalar esta aplicación. ¿Quieres añadirme a tu pantalla de inicio?");
                 } else {
-                    hablar("Hola ¿En qué puedo ayudarte?");
+                    hablar("Sistemas Groq activados. ¿En qué puedo ayudarte?");
                 }
             } else if (!synth.speaking && !estaEscuchando) {
-                escuchar();
+                if (document.getElementById('install-modal').style.display !== 'block') {
+                    escuchar();
+                }
+            } else if (synth.speaking) {
+                synth.cancel();
+            }
+        }
+
+        function confirmarInstalacion(aceptar) {
+            document.getElementById('install-modal').style.display = 'none';
+            if (aceptar && deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choice) => {
+                    if (choice.outcome === 'accepted') {
+                        hablar("Entendido. Iniciando la instalación en tu dispositivo.");
+                    }
+                    deferredPrompt = null;
+                });
+            } else {
+                hablar("De acuerdo. ¿En qué puedo ayudarte hoy?");
             }
         }
 
@@ -146,60 +203,51 @@
             synth.cancel();
             const enunciado = new SpeechSynthesisUtterance(texto);
             enunciado.lang = 'es-ES';
-            
             enunciado.onstart = () => document.body.classList.add('speaking');
             enunciado.onend = () => {
                 document.body.classList.remove('speaking');
-                // Al terminar de hablar, espera un poco y escucha
-                setTimeout(escuchar, 500);
+                if(document.getElementById('install-modal').style.display !== 'block') {
+                    setTimeout(escuchar, 500);
+                }
             };
             synth.speak(enunciado);
         }
 
         function escuchar() {
             if (recognition && !estaEscuchando && !synth.speaking) {
-                try {
-                    recognition.start();
-                } catch (e) { console.log("Micrófono ya activo"); }
+                try { recognition.start(); } catch (e) {}
             }
         }
 
-        async function enviarAGemini(pregunta) {
-            // URL actualizada a v1beta y modelo 1.5-flash para corregir el 404
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
-            
+        async function enviarAGroq(pregunta) {
+            const url = "https://api.groq.com/openai/v1/chat/completions";
             const requestBody = {
-                contents: [{
-                    parts: [{ text: pregunta + " (Responde de forma muy breve, como un robot amigable)" }]
-                }]
+                messages: [
+                    { role: "system", content: "Eres un robot amigable y avanzado. Responde de forma natural y completa en español." },
+                    { role: "user", content: pregunta }
+                ],
+                model: "llama-3.3-70b-versatile",
+                temperature: 1,
+                max_completion_tokens: 1024,
+                top_p: 1,
+                stream: false
             };
 
             try {
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${GROQ_API_KEY}`
+                    },
                     body: JSON.stringify(requestBody)
                 });
-
                 const data = await response.json();
-
-                if (!response.ok) {
-                    console.error("Error detallado:", data);
-                    hablar("Tengo un problema con mi conexión de red.");
-                    return;
+                if (data.choices && data.choices[0].message) {
+                    hablar(data.choices[0].message.content);
                 }
-
-                // Estructura de respuesta corregida para Gemini 1.5
-                if (data.candidates && data.candidates[0].content) {
-                    const respuestaIA = data.candidates[0].content.parts[0].text;
-                    hablar(respuestaIA);
-                } else {
-                    hablar("No pude procesar esa información.");
-                }
-
             } catch (error) {
-                console.error(error);
-                hablar("Error en mis circuitos centrales.");
+                hablar("Lo siento, hubo un fallo en mi conexión neuronal.");
             }
         }
     </script>
