@@ -24,6 +24,7 @@
             display: flex; justify-content: center; align-items: center;
             background-color: var(--bg-color);
             overflow: hidden; cursor: pointer;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
         }
 
         #face {
@@ -75,6 +76,15 @@
             0%, 100% { height: var(--mouth-height); }
             50% { height: 12vh; }
         }
+
+        #info-text {
+            position: absolute;
+            bottom: 20px;
+            color: var(--robot-color);
+            font-size: 14px;
+            opacity: 0.6;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body onclick="interactuar()">
@@ -87,8 +97,11 @@
         <div id="mouth"></div>
     </div>
 
+    <div id="info-text">TOCA PARA ACTIVAR</div>
+
     <script>
         // --- TU API KEY DE GEMINI ---
+        // Genera una nueva en https://aistudio.google.com/ si la anterior falla
         const API_KEY = "AIzaSyCfCiV6_Sa3fr1C6g7mjsUwq77tg1-RvJA"; 
 
         const synth = window.speechSynthesis;
@@ -111,8 +124,14 @@
             recognition.lang = 'es-UY';
             recognition.continuous = false;
 
-            recognition.onstart = () => { estaEscuchando = true; };
-            recognition.onend = () => { estaEscuchando = false; };
+            recognition.onstart = () => { 
+                estaEscuchando = true; 
+                document.getElementById('info-text').innerText = "ESCUCHANDO...";
+            };
+            recognition.onend = () => { 
+                estaEscuchando = false; 
+                document.getElementById('info-text').innerText = "ESPERANDO TOQUE";
+            };
             
             recognition.onresult = (event) => {
                 const mensaje = event.results[0][0].transcript;
@@ -135,7 +154,7 @@
                         deferredPrompt = null;
                     });
                 } else {
-                    hablar("Hola ¿En qué puedo ayudarte?");
+                    hablar("Hola. Sistemas cargados. ¿En qué puedo ayudarte?");
                 }
             } else if (!synth.speaking && !estaEscuchando) {
                 escuchar();
@@ -146,11 +165,12 @@
             synth.cancel();
             const enunciado = new SpeechSynthesisUtterance(texto);
             enunciado.lang = 'es-ES';
+            enunciado.pitch = 1.1; // Le da un toque levemente más robótico
             
             enunciado.onstart = () => document.body.classList.add('speaking');
             enunciado.onend = () => {
                 document.body.classList.remove('speaking');
-                // Al terminar de hablar, espera un poco y escucha
+                // Al terminar de hablar, espera un poco y escucha automáticamente
                 setTimeout(escuchar, 500);
             };
             synth.speak(enunciado);
@@ -165,8 +185,8 @@
         }
 
         async function enviarAGemini(pregunta) {
-            // Usamos v1 y modelo gemini-pro para evitar errores 404
-            const url = `https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${API_KEY}`;
+            // URL actualizada a v1beta con el modelo gemini-1.5-flash
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
             
             const requestBody = {
                 contents: [{
@@ -181,16 +201,21 @@
                     body: JSON.stringify(requestBody)
                 });
 
+                const data = await response.json();
+
                 if (!response.ok) {
-                    const err = await response.json();
-                    console.error(err);
-                    hablar("Tengo un problema con mi conexión de red.");
+                    console.error(data);
+                    hablar("Error en mi conexión de red.");
                     return;
                 }
 
-                const data = await response.json();
-                const respuestaIA = data.candidates[0].content.parts[0].text;
-                hablar(respuestaIA);
+                // Ajuste en la lectura del JSON para Gemini 1.5
+                if (data.candidates && data.candidates[0].content) {
+                    const respuestaIA = data.candidates[0].content.parts[0].text;
+                    hablar(respuestaIA);
+                } else {
+                    hablar("No pude procesar esa pregunta.");
+                }
 
             } catch (error) {
                 console.error(error);
