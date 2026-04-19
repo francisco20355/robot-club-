@@ -3,211 +3,152 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🕵️‍♂️ DETECTOR DE EDAD 2.0 - SUPABASE EDITION</title>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <title>Sexto TV | Oficial</title>
+    <script src="https://cdn.ably.com/lib/ably.min-1.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root {
-            --bg-color: #0f172a; --text-color: #f8fafc; --card-bg: #1e293b;
-            --primary: #38bdf8; --primary-hover: #0ea5e9;
-        }
-        * { box-sizing: border-box; transition: all 0.3s ease; }
-        body {
-            font-family: 'Segoe UI', system-ui, sans-serif; margin: 0; background: var(--bg-color);
-            color: var(--text-color); display: flex; justify-content: center; align-items: center;
-            min-height: 100vh; padding: 15px; overflow-x: hidden;
-        }
+        body { margin: 0; background: #000; color: white; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* Animaciones de Fondo */
-        .modo-disco { animation: fiesta 2s infinite; }
-        @keyframes fiesta { 0% { background: #4c1d95; } 50% { background: #be185d; } 100% { background: #4c1d95; } }
-        .modo-abuelo { background: #d7ccc8 !important; --text-color: #3e2723; --card-bg: #efebe9; --primary: #5d4037; }
+        /* Contenedor de Video */
+        .main-container { display: flex; flex: 1; position: relative; background: #000; }
+        video { width: 50%; height: 100%; object-fit: cover; background: #111; border-right: 1px solid #222; }
+        #localVideo { transform: scaleX(-1); }
 
-        #app {
-            background: var(--card-bg); padding: 30px; border-radius: 28px;
-            width: 100%; max-width: 550px; text-align: center;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.1);
+        /* Capa del Chat sobre el video */
+        #chat-container {
+            position: absolute;
+            bottom: 120px;
+            left: 20px;
+            width: 300px;
+            height: 200px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
         }
+        #messages { flex: 1; overflow-y: auto; padding: 10px; font-size: 14px; display: flex; flex-direction: column; }
+        .msg { background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 10px; margin-bottom: 5px; width: fit-content; }
+        #chat-input { background: rgba(255,255,255,0.1); border: none; color: white; padding: 10px; border-radius: 0 0 10px 10px; outline: none; }
 
-        .hidden { display: none !important; }
-        h1 { color: var(--primary); font-size: 2.2rem; margin-bottom: 10px; }
-        
-        input {
-            width: 100%; padding: 15px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.1);
-            background: rgba(0,0,0,0.2); color: white; font-size: 1rem; margin-bottom: 20px;
-        }
+        /* Barra Inferior */
+        .footer { height: 100px; background: #1c1c1e; display: flex; align-items: center; justify-content: center; gap: 15px; border-top: 1px solid #333; }
+        .btn { border: none; border-radius: 12px; padding: 15px 30px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; text-transform: uppercase; }
+        .btn-next { background: #34c759; }
+        .btn-stop { background: #ff3b30; }
+        .btn-report { background: #ff9500; padding: 15px 20px; }
 
-        .btn {
-            background: var(--primary); color: white; border: none; padding: 16px;
-            border-radius: 14px; font-weight: 800; cursor: pointer; width: 100%;
-            margin: 8px 0; font-size: 1.1rem; box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-        }
-        .btn:hover { transform: translateY(-3px); box-shadow: 0 10px 15px rgba(0,0,0,0.2); }
-        .opcion { text-align: left; background: rgba(255,255,255,0.05); font-weight: 500; }
-        
-        .progreso-bar { width: 100%; height: 10px; background: #334155; border-radius: 20px; margin-bottom: 20px; overflow: hidden; }
-        #progreso-fill { height: 100%; width: 0%; background: var(--primary); transition: width 0.4s ease; }
-
-        .numero-final { font-size: 5rem; font-weight: 900; color: var(--primary); margin: 10px 0; display: block; }
-        
-        /* Tabla de Ranking */
-        .ranking-box { margin-top: 30px; background: rgba(0,0,0,0.2); border-radius: 15px; padding: 15px; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; opacity: 0.6; font-size: 0.8rem; text-transform: uppercase; }
-        td { padding: 12px 5px; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .rank-pos { font-weight: bold; color: #fbbf24; margin-right: 10px; }
+        /* Info Superior */
+        #status-box { position: absolute; top: 20px; left: 20px; background: rgba(0,0,0,0.7); padding: 10px 20px; border-radius: 30px; font-size: 14px; z-index: 100; }
+        #user-count { position: absolute; top: 20px; right: 20px; background: rgba(52, 199, 89, 0.8); padding: 10px 20px; border-radius: 30px; font-size: 14px; z-index: 100; }
     </style>
 </head>
 <body>
 
-<div id="app">
-    <div id="pantalla-inicio">
-        <h1>🕵️‍♂️ DETECTOR 2.0</h1>
-        <p>Tu edad real no importa, lo que importa es tu configuración mental.</p>
-        <input type="text" id="input-nombre" placeholder="¿Cómo te llamás?" maxlength="12">
-        <button class="btn" onclick="iniciarTest()">EMPEZAR TEST</button>
-    </div>
+    <div id="status-box">🔴 Iniciando...</div>
+    <div id="user-count">👥 Usuarios: 0</div>
 
-    <div id="pantalla-quiz" class="hidden">
-        <div class="progreso-bar"><div id="progreso-fill"></div></div>
-        <p id="pregunta-contador" style="font-size: 0.8rem; opacity: 0.7;"></p>
-        <h2 id="pregunta-titulo" style="min-height: 70px; font-size: 1.4rem;"></h2>
-        <div id="opciones-contenedor"></div>
-    </div>
-
-    <div id="pantalla-carga" class="hidden">
-        <h2>Analizando tus mañas...</h2>
-        <p>Subiendo resultados a la base de datos...</p>
-    </div>
-
-    <div id="pantalla-final" class="hidden">
-        <h2>RESULTADO MENTAL</h2>
-        <span id="res-edad" class="numero-final">0</span>
-        <p id="res-descripcion" style="font-size: 1.2rem; font-weight: bold;"></p>
+    <div class="main-container">
+        <video id="remoteVideo" autoplay playsinline></video>
+        <video id="localVideo" autoplay muted playsinline></video>
         
-        <div class="ranking-box">
-            <h3>🏆 TOP 5 MENTES JÓVENES</h3>
-            <table>
-                <thead><tr><th>Jugador</th><th>Edad</th></tr></thead>
-                <tbody id="ranking-body"></tbody>
-            </table>
+        <div id="chat-container">
+            <div id="messages"></div>
+            <input type="text" id="chat-input" placeholder="Escribe un mensaje..." onkeypress="enviarChat(event)">
         </div>
-
-        <button class="btn" style="background: #25d366; margin-top: 20px;" onclick="compartirWA()">RETAR POR WHATSAPP</button>
-        <button class="btn" style="background: transparent; border: 2px solid var(--primary); color: var(--primary);" onclick="location.reload()">REINTENTAR</button>
     </div>
-</div>
 
-<script>
-    // --- CONFIGURACIÓN DE TU SUPABASE ---
-    const SB_URL = "https://yeumdjkijjijkdwxhhxj.supabase.co";
-    const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlldW1kamtpamppamtkd2N4aHhqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYxMDQ4MzMsImV4cCI6MjA5MTY4MDgzM30.Cl2HUbxGV5eFut9VQ3-Fx0WtT6oJpx4F_AOfGJ4pdl0";
-    const _supabase = supabase.createClient(SB_URL, SB_KEY);
+    <div class="footer">
+        <button class="btn btn-stop" onclick="location.reload()">STOP</button>
+        <button class="btn btn-next" onclick="buscarSiguiente()">SIGUIENTE</button>
+        <button class="btn btn-report" onclick="reportar()">REPORTAR</button>
+    </div>
 
-    const preguntas = [
-        { t: "¿A qué jugás cuando tenés tiempo libre?", o: [{t:"Roblox (scripts Luau)", m:11}, {t:"GTA V / NFS (Optimizado)", m:16}, {t:"Solitario / Buscaminas", m:70}] },
-        { t: "¿Cómo escuchás música con graves?", o: [{t:"Parlante del celu", m:18}, {t:"Subwoofer / Placa ZK-MT21", m:14}, {t:"Radio AM bajito", m:75}] },
-        { t: "Si se rompe la compu (bisagra/pin)...", o: [{t:"Lloro y me rindo", m:13}, {t:"Busco soporte o la arreglo", m:16}, {t:"La dejo tirada", m:65}] },
-        { t: "¿Para tus proyectos web usás...?", o: [{t:"GitHub + Supabase", m:14}, {t:"Solo WhatsApp", m:25}, {t:"Cartulina y marcador", m:60}] },
-        { t: "¿Qué planeás para el futuro?", o: [{t:"Vivir de YouTube", m:10}, {t:"Informática en UTU/Tumo", m:15}, {t:"Oficina tradicional", m:55}] },
-        { t: "Si tu hermana de 7 te pide la compu...", o: [{t:"Se la presto al toque", m:18}, {t:"Le digo que estoy codeando", m:14}, {t:"No se la presto nunca", m:50}] },
-        { t: "Tu merienda favorita es:", o: [{t:"Energizante y Doritos", m:13}, {t:"Galletitas y chocolatada", m:12}, {t:"Mate y tortas fritas", m:55}] },
-        { t: "¿Cómo te movés por Solymar?", o: [{t:"En bici / skate", m:14}, {t:"En ómnibus", m:25}, {t:"Manejando despacio", m:62}] },
-        { t: "¿A qué hora te dormís?", o: [{t:"A las 2 AM (jugando/codeando)", m:16}, {t:"A las 11 PM", m:28}, {t:"A las 9 PM en el sillón", m:70}] },
-        { t: "¿Notificaciones del celu?", o: [{t:"Siempre en silencio", m:16}, {t:"Ruidito de WhatsApp", m:28}, {t:"Tono fuerte de llamada", m:75}] }
-    ];
-
-    let actual = 0;
-    let score = 0;
-    let nombreUsuario = "";
-
-    function iniciarTest() {
-        nombreUsuario = document.getElementById('input-nombre').value.trim();
-        if(nombreUsuario.length < 2) return alert("¡Poné un nombre real, che!");
+    <script>
+        const ABLY_KEY = 'HIAY1w.x1_3_Q:8kTgjL3KPHdx8_NsMeccHEcrOI_g5NAqj76-aDBl3Fs'; 
+        const ably = new Ably.Realtime(ABLY_KEY);
+        const canalMatch = ably.channels.get('recreo-match');
+        const canalChat = ably.channels.get('recreo-chat');
         
-        document.getElementById('pantalla-inicio').classList.add('hidden');
-        document.getElementById('pantalla-quiz').classList.remove('hidden');
-        cargarPregunta();
-    }
+        let peer, localStream, currentCall;
 
-    function cargarPregunta() {
-        const p = preguntas[actual];
-        document.getElementById('pregunta-contador').innerText = `PREGUNTA ${actual + 1} DE ${preguntas.length}`;
-        document.getElementById('pregunta-titulo').innerText = p.t;
-        document.getElementById('progreso-fill').style.width = `${(actual / preguntas.length) * 100}%`;
-        
-        const contenedor = document.getElementById('opciones-contenedor');
-        contenedor.innerHTML = '';
+        async function iniciar() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('localVideo').srcObject = localStream;
+                peer = new Peer();
+                
+                peer.on('open', (id) => {
+                    document.getElementById('status-box').innerText = "🟢 En línea";
+                    actualizarContador();
+                });
 
-        p.o.forEach(opt => {
-            const b = document.createElement('button');
-            b.className = 'btn opcion';
-            b.innerText = opt.t;
-            b.onclick = () => procesarRespuesta(opt.m);
-            contenedor.appendChild(b);
-        });
-    }
+                peer.on('call', (call) => {
+                    if (currentCall) currentCall.close();
+                    currentCall = call;
+                    call.answer(localStream);
+                    call.on('stream', (s) => document.getElementById('remoteVideo').srcObject = s);
+                });
 
-    function procesarRespuesta(m) {
-        score += m;
-        actual++;
+                canalMatch.subscribe('buscando', (msg) => {
+                    if (msg.data.peerId !== peer.id && !currentCall) llamarA(msg.data.peerId);
+                });
 
-        // Cambio visual dinámico según promedio temporal
-        const promedio = score / actual;
-        if(promedio > 50) document.body.className = 'modo-abuelo';
-        else if(promedio < 17) document.body.className = 'modo-disco';
-        else document.body.className = '';
+                // Escuchar chat
+                canalChat.subscribe('mensaje', (msg) => {
+                    mostrarMensaje(msg.data.texto);
+                });
 
-        if(actual < preguntas.length) cargarPregunta();
-        else finalizar();
-    }
-
-    async function finalizar() {
-        document.getElementById('pantalla-quiz').classList.add('hidden');
-        document.getElementById('pantalla-carga').classList.remove('hidden');
-
-        const edadFinal = Math.round(score / preguntas.length);
-
-        // --- SEGURIDAD: Guardar en Supabase ---
-        try {
-            await _supabase.from('ranking_edad').insert([{ nombre: nombreUsuario, edad_mental: edadFinal }]);
-            await mostrarResultados(edadFinal);
-        } catch (e) {
-            console.error(e);
-            await mostrarResultados(edadFinal); // Mostrar igual aunque falle el server
+            } catch (err) { alert("Activa la cámara"); }
         }
-    }
 
-    async function mostrarResultados(edad) {
-        document.getElementById('pantalla-carga').classList.add('hidden');
-        document.getElementById('pantalla-final').classList.remove('hidden');
-        document.body.className = "";
+        function actualizarContador() {
+            canalMatch.presence.get((err, members) => {
+                document.getElementById('user-count').innerText = "👥 Usuarios: " + (members ? members.length : 1);
+            });
+            canalMatch.presence.enter();
+        }
 
-        document.getElementById('res-edad').innerText = edad;
-        
-        let desc = "";
-        if(edad < 16) desc = "🚀 PIBE BASADO: Tu mente vuela a 120 FPS.";
-        else if(edad < 35) desc = "💼 JOVEN ADULTO: Programás pero ya te cuidas el lomo.";
-        else desc = "🦖 DINOSAURIO SABIO: Acomodate los lentes, abuelo.";
-        document.getElementById('res-descripcion').innerText = desc;
+        function buscarSiguiente() {
+            if (currentCall) currentCall.close();
+            document.getElementById('remoteVideo').srcObject = null;
+            document.getElementById('messages').innerHTML = "";
+            canalMatch.publish('buscando', { peerId: peer.id });
+        }
 
-        // Cargar Top 5 del Ranking Real
-        const { data } = await _supabase.from('ranking_edad').select('nombre, edad_mental').order('edad_mental', { ascending: true }).limit(5);
-        
-        const tbody = document.getElementById('ranking-body');
-        tbody.innerHTML = data.map((r, i) => `
-            <tr>
-                <td><span class="rank-pos">#${i+1}</span> ${r.nombre}</td>
-                <td>${r.edad_mental} años</td>
-            </tr>
-        `).join('');
-    }
+        function llamarA(id) {
+            const call = peer.call(id, localStream);
+            call.on('stream', (s) => {
+                document.getElementById('remoteVideo').srcObject = s;
+                currentCall = call;
+            });
+        }
 
-    function compartirWA() {
-        const edad = document.getElementById('res-edad').innerText;
-        const msg = encodeURIComponent(`¡Mi mente tiene ${edad} años según el Detector! 🕵️‍♂️ ¿Te animás a ganarme? Hacelo acá: ${window.location.href}`);
-        window.open(`https://wa.me/?text=${msg}`);
-    }
-</script>
+        function enviarChat(e) {
+            if (e.key === 'Enter') {
+                const input = document.getElementById('chat-input');
+                if (input.value.trim() !== "") {
+                    canalChat.publish('mensaje', { texto: input.value });
+                    input.value = "";
+                }
+            }
+        }
 
+        function mostrarMensaje(t) {
+            const m = document.getElementById('messages');
+            const div = document.createElement('div');
+            div.className = 'msg';
+            div.innerText = t;
+            m.appendChild(div);
+            m.scrollTop = m.scrollHeight;
+        }
+
+        function reportar() {
+            alert("Usuario reportado. Buscando a alguien más...");
+            buscarSiguiente();
+        }
+
+        iniciar();
+    </script>
 </body>
 </html>
